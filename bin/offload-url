@@ -1,0 +1,6 @@
+#!/usr/bin/env node
+// Print the authenticated dashboard URL.
+import { readWebToken } from "../web/token.js";
+const port = process.env.OFFLOAD_WEB_PORT || 3460;
+for (const host of ["127.0.0.1", ...(process.env.OFFLOAD_WEB_HOST || "").split(",").map((h) => h.trim()).filter(Boolean)])
+  console.log(`http://${host}:${port}/?token=${readWebToken()}`);
