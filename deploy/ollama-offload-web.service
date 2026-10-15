@@ -4,7 +4,7 @@ Description=Ollama offload dashboard
 [Service]
 # Uncomment to also listen on a LAN address (comma-separated for several):
 # Environment=OFFLOAD_WEB_HOST=192.168.1.10
-ExecStart=/usr/bin/node %h/.local/share/ollama-mcp/web/server.js
+ExecStart=/usr/bin/node %h/clauderouter/web/server.js
 Restart=on-failure
 
 [Install]

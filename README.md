@@ -1,4 +1,4 @@
-# ollama-offload
+# clauderouter
 
 Hand low-stakes text work from Claude Code to a local [Ollama](https://ollama.com) model.
 
