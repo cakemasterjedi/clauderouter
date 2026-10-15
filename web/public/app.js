@@ -36,7 +36,25 @@ function toast(text, bad) {
   toastTimer = setTimeout(() => (t.className = "toast"), bad ? 6000 : 2500);
 }
 
-const kpi = (label, value, unit) => h("div", { class: "kpi" }, h("span", { class: "label" }, label), h("b", {}, String(value), unit ? h("small", {}, unit) : null));
+const compact = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(n));
+const kpi = (label, value, unit, sub) => h("div", { class: "kpi" }, h("span", { class: "label" }, label), h("b", {}, String(value), unit ? h("small", {}, unit) : null), sub ? h("span", { class: "help" }, sub) : null);
+const dayChart = (daily) => {
+  const max = Math.max(1, ...daily.map((d) => d.tokens));
+  return h("div", { class: "days", role: "img", "aria-label": "Tokens per day, last 14 days" }, daily.map((d) =>
+    h("div", { class: "day", title: `${d.date}: ${d.tokens.toLocaleString()} tokens, ${d.jobs} jobs` },
+      h("div", { class: "day-bar" }, h("i", { style: `height:${d.tokens ? Math.max(3, (d.tokens / max) * 100) : 0}%` })),
+      h("span", {}, d.date.slice(8)))));
+};
+const modelTable = (byModel) => {
+  const rows = Object.entries(byModel).sort((a, b) => b[1].jobs - a[1].jobs);
+  return rows.length
+    ? h("div", { class: "tbl-wrap" }, h("table", { class: "tbl" },
+      h("thead", {}, h("tr", {}, ["Model", "Jobs", "Success", "In", "Out", "Avg time", "Tok/s"].map((c) => h("th", {}, c)))),
+      h("tbody", {}, rows.map(([k, m]) => h("tr", {},
+        h("td", { class: "mono", title: k }, k), h("td", {}, String(m.jobs)), h("td", {}, Math.round((m.ok / m.jobs) * 100) + "%"),
+        h("td", {}, compact(m.inputTokens)), h("td", {}, compact(m.outputTokens)), h("td", {}, m.avgMs + " ms"), h("td", {}, m.tokPerSec ?? "n/a"))))))
+    : h("p", { class: "help" }, "No data yet.");
+};
 const bars = (title, obj) => {
   const entries = Object.entries(obj).sort((a, b) => b[1] - a[1]);
   const max = Math.max(1, ...entries.map((e) => e[1]));
@@ -90,12 +108,19 @@ const views = {
     m.append(
       h("section", { class: "kpis" },
         kpi("Offloads today", g.today), kpi("Last 7 days", g.week), kpi("All time", g.all),
-        kpi("Est. Claude tokens saved", g.tokensSaved.toLocaleString()), kpi("Avg latency", g.avgMs, "ms"),
+        kpi("Est. Claude tokens saved", g.tokensSaved.toLocaleString()), kpi("Tokens handled locally", compact(g.inputTokens + g.outputTokens), "", `${compact(g.tokensToday)} today · ${compact(g.tokensWeek)} this week`),
+        kpi("Avg latency", g.avgMs, "ms"), kpi("Fallbacks", g.fallbacks, "", g.all ? `of ${g.all} jobs` : ""),
         kpi("Success rate", g.successRate == null ? "n/a" : Math.round(g.successRate * 100), g.successRate == null ? "" : "%"),
         kpi("Large-file guard hits", s.guard.total)),
       h("section", { class: "card" },
         h("div", { class: "sect-h" }, h("div", { class: "label" }, "Route decisions"), h("div", { class: "help" }, s.route.total + " total")),
         h("div", { class: "cols" }, bars("By rule", s.route.byRule), bars("By action", s.route.byAction), bars("By source", s.route.bySource))),
+      h("section", { class: "card" },
+        h("div", { class: "sect-h" }, h("div", { class: "label" }, "Tokens per day"), h("div", { class: "help" }, "Input + output, last 14 days")),
+        dayChart(g.daily)),
+      h("section", { class: "card" },
+        h("div", { class: "sect-h" }, h("div", { class: "label" }, "By model"), h("div", { class: "help" }, "Input and output tokens as reported by Ollama")),
+        modelTable(g.byModel)),
       h("section", { class: "card" },
         h("div", { class: "sect-h" }, h("div", { class: "label" }, "Ollama"), h("div", { class: "help" }, (o.up ? "Reachable" : "Unreachable") + " · " + o.models.length + " models installed")),
         o.running.length
@@ -172,6 +197,10 @@ const views = {
       const names = [...new Set([c[key], ...o.models.map((x) => x.name)])];
       return field(label, h("select", { onchange: (e) => { c[key] = e.target.value; touch(); } }, names.map((n) => h("option", { value: n, ...(n === c[key] ? { selected: "" } : {}) }, n))), help);
     };
+    const fallbackSel = () => {
+      const names = [...new Set([c.fallbackModel, ...o.models.map((x) => x.name)])].filter(Boolean);
+      return field("Fallback model", h("select", { onchange: (e) => { c.fallbackModel = e.target.value; touch(); } }, h("option", { value: "", ...(c.fallbackModel ? {} : { selected: "" }) }, "None (disabled)"), names.map((n) => h("option", { value: n, ...(n === c.fallbackModel ? { selected: "" } : {}) }, n))), "Retried once if the chosen model errors or times out. Skipped for image requests.");
+    };
     const text = (obj, key, label, num, help) => field(label, h("input", { type: num ? "number" : "text", value: obj[key], oninput: (e) => { obj[key] = num ? Number(e.target.value) : e.target.value; touch(); } }), help);
 
     const rulesBox = h("div");
@@ -216,6 +245,7 @@ const views = {
         h("div", { class: "fields" },
           modelSel("defaultModel", "Default model", "Used for text prompts."), modelSel("visionModel", "Vision model", "Used when images are attached."),
           modelSel("fastModel", "Fast model", "Used for classify / extract / tag when auto-select is on."),
+          fallbackSel(), text(c, "generateTimeoutSec", "Generate timeout (seconds)", true, "Per attempt; 10 to 1800."),
           text(c, "numCtx", "Context window (numCtx)", true, "Tokens; minimum 512."),
           text(c, "maxNumCtx", "Max context (maxNumCtx)", true, "Upper limit when a large input raises the context window."),
           text(c, "swapAvoidTokens", "Swap-avoid threshold (tokens)", true, "Short structured jobs stay on the loaded default model below this size."), text(c, "ollamaHost", "Ollama host", false, "e.g. http://localhost:11434")),

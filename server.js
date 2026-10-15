@@ -7,6 +7,7 @@ import { z } from "zod";
 import { loadConfig } from "./lib/config.js";
 import { pickModel, loadedModels } from "./lib/models.js";
 import { logEvent, snip } from "./lib/log.js";
+import { runGenerate, timings } from "./lib/generate.js";
 
 async function ollama(path, body, host = loadConfig().ollamaHost) {
   const res = await fetch(`${host}${path}`, {
@@ -67,24 +68,23 @@ server.tool(
         prompt: request, task, hasImages: !!images, inputChars: prompt.length + (system?.length || 0), explicitModel: model,
         loaded: model ? [] : await loadedModels(cfg.ollamaHost), cfg,
       });
-      const used = picked.model;
-      const r = await ollama("/api/generate", {
-        model: used,
+      const { r, model: used, fallbackFrom, fallbackError } = await runGenerate({ cfg, body: {
+        model: picked.model,
         prompt,
         system,
         images,
-        stream: false,
         think: think ?? cfg.think,
         options: { num_ctx: picked.numCtx, ...(temperature === undefined ? {} : { temperature }) },
-      }, cfg.ollamaHost);
+      } });
       logEvent("generate", {
         model: used, route_reason: picked.reason, num_ctx: picked.numCtx, ms: Date.now() - t0, ok: true,
-        prompt_eval_count: r.prompt_eval_count, eval_count: r.eval_count,
+        prompt_eval_count: r.prompt_eval_count, eval_count: r.eval_count, ...timings(r),
+        ...(fallbackFrom ? { fallback_from: fallbackFrom, fallback_error: fallbackError } : {}),
         file_bytes, est_claude_tokens_saved: Math.round(file_bytes / 4), prompt: label,
       });
       return text(r.response);
     } catch (e) {
-      logEvent("generate", { model: picked.model, route_reason: picked.reason, num_ctx: picked.numCtx, ms: Date.now() - t0, ok: false, error: String(e.message).slice(0, 200), file_bytes, est_claude_tokens_saved: 0, prompt: label });
+      logEvent("generate", { model: picked.model, route_reason: picked.reason, num_ctx: picked.numCtx, ms: Date.now() - t0, ok: false, error: String(e.message).slice(0, 200), ...(e.fallbackFrom ? { fallback_from: e.fallbackFrom } : {}), file_bytes, est_claude_tokens_saved: 0, prompt: label });
       throw e;
     }
   },

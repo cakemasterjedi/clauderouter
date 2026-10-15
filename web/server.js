@@ -8,6 +8,7 @@ import { timingSafeEqual, createHash } from "node:crypto";
 import { loadConfig, saveConfig, validateConfig } from "../lib/config.js";
 import { logEvent, readEvents, snip } from "../lib/log.js";
 import { pickModel, loadedModels } from "../lib/models.js";
+import { runGenerate, timings } from "../lib/generate.js";
 import { classify } from "../lib/router.js";
 import { readWebToken } from "./token.js";
 import { computeStats } from "./stats.js";
@@ -87,22 +88,15 @@ export function createApp({ token = readWebToken(), fails = new Map(), now = Dat
       if (!prompt) return [400, { errors: ["prompt required"] }];
       const cfg = loadConfig();
       const picked = pickModel({ prompt, inputChars: prompt.length + (system?.length || 0), explicitModel: model, loaded: model ? [] : await loadedModels(cfg.ollamaHost), cfg });
-      const used = picked.model;
       const extra = { route_reason: picked.reason, num_ctx: picked.numCtx };
       const t0 = Date.now();
       try {
-        const res = await fetch(`${cfg.ollamaHost}/api/generate`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ model: used, prompt, system: system || undefined, stream: false, think: cfg.think, options: { num_ctx: picked.numCtx } }),
-        });
-        if (!res.ok) throw new Error(`Ollama -> ${res.status}: ${(await res.text()).slice(0, 200)}`);
-        const r = await res.json();
+        const { r, model: used, fallbackFrom, fallbackError } = await runGenerate({ cfg, body: { model: picked.model, prompt, system: system || undefined, think: cfg.think, options: { num_ctx: picked.numCtx } } });
         const ms = Date.now() - t0;
-        logEvent("generate", { model: used, ...extra, ms, ok: true, prompt_eval_count: r.prompt_eval_count, eval_count: r.eval_count, file_bytes: 0, est_claude_tokens_saved: 0, prompt: snip(prompt) });
-        return { response: r.response, ms, model: used, route_reason: picked.reason, eval_count: r.eval_count };
+        logEvent("generate", { model: used, ...extra, ms, ok: true, prompt_eval_count: r.prompt_eval_count, eval_count: r.eval_count, ...timings(r), ...(fallbackFrom ? { fallback_from: fallbackFrom, fallback_error: fallbackError } : {}), file_bytes: 0, est_claude_tokens_saved: 0, prompt: snip(prompt) });
+        return { response: r.response, ms, model: used, route_reason: picked.reason, eval_count: r.eval_count, ...(fallbackFrom ? { fallback_from: fallbackFrom } : {}) };
       } catch (e) {
-        logEvent("generate", { model: used, ...extra, ms: Date.now() - t0, ok: false, error: String(e.message).slice(0, 200), file_bytes: 0, est_claude_tokens_saved: 0, prompt: snip(prompt) });
+        logEvent("generate", { model: picked.model, ...extra, ms: Date.now() - t0, ok: false, error: String(e.message).slice(0, 200), ...(e.fallbackFrom ? { fallback_from: e.fallbackFrom } : {}), file_bytes: 0, est_claude_tokens_saved: 0, prompt: snip(prompt) });
         return [502, { errors: [e.message] }];
       }
     },
