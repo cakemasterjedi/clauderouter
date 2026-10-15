@@ -2,7 +2,7 @@
 
 Hand low-stakes text work from Claude Code to a local [Ollama](https://ollama.com) model.
 
-- **MCP server** (`server.js`): `generate` and `list_models` tools for Claude Code.
+- **MCP server** (`server.js`): `generate` and `list_models` tools for Claude Code. Models are picked automatically: prose work (summaries, drafts, explanations) uses the default model, classify/extract/tag work uses the faster `fastModel`, short structured jobs stay on an already-loaded default model to avoid a model swap, and the context window is raised (up to `maxNumCtx`) for large inputs. Pass `model` to override.
 - **Hooks** (`hooks/`): a prompt router that sends summarize / draft / reword / classify / extract / image-description requests to Ollama and keeps code, debugging and security with Claude (prefix a prompt with `!` to skip routing), plus a guard that tells Claude to summarize or partially read files of 256 KB or more.
 - **Dashboard** (`web/`): a zero-dependency web UI with stats, an event log, rule and setting editing, and a playground. Token login, 10-failure lockout per IP.
 

@@ -215,8 +215,12 @@ const views = {
         h("div", { class: "sect-h" }, h("div", { class: "label" }, "Models & runtime"), h("div", { class: "help" }, "Which local model handles offloaded work.")),
         h("div", { class: "fields" },
           modelSel("defaultModel", "Default model", "Used for text prompts."), modelSel("visionModel", "Vision model", "Used when images are attached."),
-          text(c, "numCtx", "Context window (numCtx)", true, "Tokens; minimum 512."), text(c, "ollamaHost", "Ollama host", false, "e.g. http://localhost:11434")),
+          modelSel("fastModel", "Fast model", "Used for classify / extract / tag when auto-select is on."),
+          text(c, "numCtx", "Context window (numCtx)", true, "Tokens; minimum 512."),
+          text(c, "maxNumCtx", "Max context (maxNumCtx)", true, "Upper limit when a large input raises the context window."),
+          text(c, "swapAvoidTokens", "Swap-avoid threshold (tokens)", true, "Short structured jobs stay on the loaded default model below this size."), text(c, "ollamaHost", "Ollama host", false, "e.g. http://localhost:11434")),
         h("div", { style: "margin-top:8px" },
+          switchRow(c, "autoSelect", "Auto-select model", "Pick the fast model for structured work; keep the default for prose."),
           switchRow(c, "think", "Think by default", "Let the model reason before answering (slower)."),
           switchRow(c.router, "llmClassifier", "LLM classifier fallback", "When no rule matches, ask the model (4s timeout, falls back to keep)."))),
       h("section", { class: "card" },
@@ -238,7 +242,7 @@ const views = {
     const rout = h("div", { "aria-live": "polite" });
     const pp = h("textarea", { id: "pp", placeholder: "Prompt to run on a local model" });
     const names = [...new Set([config.defaultModel, ...o.models.map((x) => x.name)])];
-    const sel = h("select", { "aria-label": "Model" }, names.map((n) => h("option", { value: n, ...(n === config.defaultModel ? { selected: "" } : {}) }, n)));
+    const sel = h("select", { "aria-label": "Model" }, h("option", { value: "", selected: "" }, "Auto"), names.map((n) => h("option", { value: n }, n)));
     const pout = h("div", { "aria-live": "polite" });
     const classify = async () => {
       try {
@@ -254,8 +258,8 @@ const views = {
       run.disabled = true; run.textContent = "Running…";
       pout.replaceChildren(h("p", { class: "help", style: "margin-top:12px" }, "Waiting for the model…"));
       try {
-        const r = await api("/api/playground", { prompt: pp.value, model: sel.value });
-        pout.replaceChildren(h("div", { class: "out" }, r.response), h("div", { class: "meta" }, `${r.model} · ${r.ms} ms · ${r.eval_count ?? "?"} tokens`));
+        const r = await api("/api/playground", { prompt: pp.value, model: sel.value || undefined });
+        pout.replaceChildren(h("div", { class: "out" }, r.response), h("div", { class: "meta" }, `${r.model}${r.route_reason ? " (" + r.route_reason + ")" : ""} · ${r.ms} ms · ${r.eval_count ?? "?"} tokens`));
       } catch (e) { pout.replaceChildren(h("p", { class: "err", role: "alert", style: "margin-top:12px" }, e.message)); }
       run.disabled = false; run.textContent = "Run";
     };
