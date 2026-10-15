@@ -18,9 +18,15 @@ const COOKIE = "offload_token";
 const sha = (s) => createHash("sha256").update(String(s)).digest();
 const safeEq = (a, b) => timingSafeEqual(sha(a), sha(b));
 
-const LOGIN = `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Ollama offload</title>
-<style>body{font:16px system-ui;display:grid;place-items:center;height:100vh;margin:0;background:Canvas;color:CanvasText}form{display:grid;gap:.6rem;width:20rem}input,button{padding:.5rem;font:inherit}</style>
-<form method=get action=/><h3>Ollama offload</h3><input name=token type=password placeholder="Access token" autofocus><button>Sign in</button></form>`;
+const LOGIN = `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="light dark"><title>clauderouter</title>
+<style>:root{--bg:#f6f7f9;--s:#fff;--b:#e3e5ea;--t:#16181d;--m:#5b6270;--a:#4f46e5;--af:#fff}@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--s:#171a20;--b:#2a2f39;--t:#e8eaee;--m:#9aa3b2;--a:#8183f4;--af:#0f1115}}
+*{box-sizing:border-box}body{font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;background:var(--bg);color:var(--t)}
+form{display:grid;gap:16px;width:100%;max-width:22rem;background:var(--s);border:1px solid var(--b);border-radius:12px;padding:24px}
+h1{margin:0;font-size:20px;letter-spacing:-.02em}p{margin:0;color:var(--m);font-size:13px}
+input,button{font:inherit;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid var(--b);background:var(--s);color:var(--t);width:100%}
+button{background:var(--a);border-color:var(--a);color:var(--af);font-weight:600;cursor:pointer}
+:focus-visible{outline:2px solid var(--a);outline-offset:2px}</style>
+<form method=get action=/><h1>clauderouter</h1><p>Enter your access token to continue.</p><input name=token type=password placeholder="Access token" aria-label="Access token" autofocus><button>Sign in</button></form>`;
 
 const readBody = (req) => new Promise((resolve, reject) => {
   let n = 0;

@@ -38,7 +38,7 @@ test("good token sets cookie and redirects; cookie works", async () => {
   assert.match(cookie, /SameSite=Strict/);
   const ok = await get("/", { cookie: cookie.split(";")[0] });
   assert.equal(ok.status, 200);
-  assert.match(await ok.text(), /Ollama offload/);
+  assert.match(await ok.text(), /clauderouter/);
 });
 test("bearer works for API", async () => {
   const r = await get("/api/config", { authorization: `Bearer ${token}` });

@@ -1,9 +1,18 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ollama offload</title><link rel="stylesheet" href="/style.css"></head>
+<meta name="color-scheme" content="light dark">
+<title>clauderouter</title><link rel="stylesheet" href="/style.css"></head>
 <body>
-<header><h1>Ollama offload</h1>
-<nav id="tabs"><button data-t="overview" class="on">Overview</button><button data-t="events">Events</button><button data-t="settings">Rules &amp; Settings</button><button data-t="test">Test</button></nav>
-<label class="kill" id="kill"><input type="checkbox" id="killbox"><span id="killtxt"></span></label></header>
+<header class="top"><div class="top-in">
+  <h1 class="brand"><span class="logo" aria-hidden="true"></span>clauderouter</h1>
+  <nav id="tabs" class="seg" aria-label="Views">
+    <button type="button" data-t="overview">Overview</button><button type="button" data-t="events">Events</button><button type="button" data-t="settings">Rules &amp; Settings</button><button type="button" data-t="test">Test</button>
+  </nav>
+  <div class="top-r">
+    <span id="ollama" class="status"><i class="dot"></i><span>Ollama …</span></span>
+    <label class="switch" id="kill"><input type="checkbox" id="killbox" role="switch" aria-checked="false"><span class="track"></span><span id="killtxt">Router</span></label>
+  </div>
+</div></header>
 <main id="main"></main>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script type="module" src="/app.js"></script></body></html>
